@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student - ClubGear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">ClubGear Share</span>
+            <a href="admin.html" class="btn btn-outline-light btn-sm">Go to Admin Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-3">Available Lab Equipment</h2>
+        <div class="row" id="equipmentList">
+            <p class="text-muted">Loading gear from database...</p>
+        </div>
+
+        <!-- NEW: My Request History Section -->
+        <h3 class="mt-5 mb-3">My Request History</h3>
+        <div class="card shadow-sm border-secondary mb-5">
+            <div class="card-body" id="myRequestsList">
+                <p class="text-muted">Loading your requests...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+        // We added 'query' and 'where' to filter the database for just this student's requests
+        import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        // !!! PASTE YOUR FIREBASE CONFIG KEYS HERE !!!
+        const firebaseConfig = {
+  apiKey: "AIzaSyCdRRPDwaWuzRO84bdASyAxthzTaN-cYcM",
+  authDomain: "clubgear-5b056.firebaseapp.com",
+  projectId: "clubgear-5b056",
+  storageBucket: "clubgear-5b056.firebasestorage.app",
+  messagingSenderId: "752676917301",
+  appId: "1:752676917301:web:ec1df798d538f1a218617c"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const currentUserEmail = "student@college.edu"; // Hardcoded for the hackathon prototype
+
+        // Send Booking Request & Lock Inventory Immediately
+        window.requestBooking = async function(itemName, equipmentId) {
+            alert("Sending request to admin for " + itemName + "...");
+            try {
+                await addDoc(collection(db, "bookings"), {
+                    item_name: itemName,
+                    equipment_id: equipmentId,
+                    borrower_email: currentUserEmail,
+                    status: "pending",
+                    request_date: new Date().toLocaleDateString()
+                });
+
+                const equipmentRef = doc(db, "equipment", equipmentId);
+                await updateDoc(equipmentRef, { status: "Pending Approval" });
+
+                alert("Success! Your request is pending admin approval.");
+                
+                loadEquipment(); 
+                loadMyRequests(); // Refresh the history box instantly
+
+            } catch (error) {
+                console.error("Error processing request: ", error);
+                alert("Failed to send request.");
+            }
+        };
+
+        // Load Equipment Gallery
+        // Load Equipment Gallery
+        async function loadEquipment() {
+            const equipmentDiv = document.getElementById('equipmentList');
+            try {
+                const querySnapshot = await getDocs(collection(db, "equipment"));
+                equipmentDiv.innerHTML = ""; 
+
+                querySnapshot.forEach((document) => {
+                    const item = document.data();
+                    const equipmentId = document.id; 
+                    
+                    if(item.status.toLowerCase() === 'available') {
+                        const cardHtml = `
+                        <div class="col-md-4">
+                            <div class="card mb-3 border-dark shadow-sm h-100">
+                                <img src="${item.image_url || 'https://placehold.co/600x400/eeeeee/000000?text=No+Image'}" class="card-img-top" alt="${item.name}" style="height: 200px; object-fit: cover;">
+                                
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">${item.name}</h5>
+                                    <p class="card-text text-muted mb-1">Owner: ${item.owner}</p>
+                                    <p class="text-success fw-bold mb-3">Status: ${item.status}</p>
+                                    <button class="btn btn-primary w-100 mt-auto" onclick="requestBooking('${item.name}', '${equipmentId}')">Request Booking</button>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                        
+                        // THIS WAS THE MISSING LINE!
+                        equipmentDiv.innerHTML += cardHtml;
+                    }
+                });
+            } catch (error) {
+                console.error("Error loading equipment: ", error);
+                equipmentDiv.innerHTML = "<p class='text-danger'>Failed to load equipment.</p>";
+            }
+        }
+        
+
+        // NEW: Load Student's Request History
+        async function loadMyRequests() {
+            const historyDiv = document.getElementById('myRequestsList');
+            try {
+                // Only pull requests made by this specific student
+                const q = query(collection(db, "bookings"), where("borrower_email", "==", currentUserEmail));
+                const querySnapshot = await getDocs(q);
+                
+                historyDiv.innerHTML = ""; 
+                let hasRequests = false;
+
+                querySnapshot.forEach((document) => {
+                    hasRequests = true;
+                    const req = document.data();
+                    let badgeColor = "bg-secondary";
+                    
+                    // Assign colors based on status
+                    if(req.status === "pending") badgeColor = "bg-warning text-dark";
+                    if(req.status === "approved") badgeColor = "bg-success";
+                    if(req.status === "rejected") badgeColor = "bg-danger";
+                    if(req.status === "returned") badgeColor = "bg-info text-dark";
+
+                    const reqHtml = `
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span><strong>${req.item_name}</strong> <small class="text-muted">(${req.request_date})</small></span>
+                        <span class="badge ${badgeColor}">${req.status.toUpperCase()}</span>
+                    </div>
+                    `;
+                    historyDiv.innerHTML += reqHtml;
+                });
+
+                if (!hasRequests) {
+                    historyDiv.innerHTML = "<p class='text-muted mb-0'>You haven't requested any items yet.</p>";
+                }
+            } catch (error) {
+                console.error("Error loading history: ", error);
+                historyDiv.innerHTML = "<p class='text-danger'>Failed to load request history.</p>";
+            }
+        }
+
+        // Run both functions on page load
+        loadEquipment();
+        loadMyRequests();
+    </script>
+</body>
+</html>

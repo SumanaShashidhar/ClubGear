@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - ClubGear</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-danger mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">⚙️ ClubGear Admin Dashboard</span>
+            <a href="index.html" class="btn btn-outline-light btn-sm">Switch to Student View</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        
+        <!-- NEW: Add Equipment Form -->
+        <div class="card shadow-sm border-success mb-5">
+            <div class="card-header bg-success text-white fw-bold">
+                ➕ Add New Club Equipment
+            </div>
+            <div class="card-body">
+                <form id="addItemForm" onsubmit="event.preventDefault(); addNewItem();">
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <input type="text" id="newItemName" class="form-control" placeholder="Item Name (e.g. Multimeter)" required>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <input type="text" id="newItemOwner" class="form-control" placeholder="Owning Club" required>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <input type="url" id="newItemImage" class="form-control" placeholder="Image URL (Optional)">
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <button type="submit" class="btn btn-success w-100">Upload</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <h2 class="mb-3">Pending Booking Requests</h2>
+        <div class="card shadow-sm border-danger">
+            <div class="card-body" id="pendingRequests">
+                <p class="text-muted">Loading requests from database...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+        // Added addDoc so the admin can create new inventory
+        import { getFirestore, collection, getDocs, doc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        // !!! PASTE YOUR FIREBASE CONFIG KEYS HERE !!!
+       const firebaseConfig = {
+  apiKey: "AIzaSyCdRRPDwaWuzRO84bdASyAxthzTaN-cYcM",
+  authDomain: "clubgear-5b056.firebaseapp.com",
+  projectId: "clubgear-5b056",
+  storageBucket: "clubgear-5b056.firebasestorage.app",
+  messagingSenderId: "752676917301",
+  appId: "1:752676917301:web:ec1df798d538f1a218617c"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // NEW: Function to upload new equipment
+        window.addNewItem = async function() {
+            const name = document.getElementById('newItemName').value;
+            const owner = document.getElementById('newItemOwner').value;
+            let image = document.getElementById('newItemImage').value;
+
+            // Give it a default image if the admin leaves the URL blank
+            if (!image) {
+                image = "https://placehold.co/600x400/eeeeee/000000?text=New+Item";
+            }
+
+            try {
+                await addDoc(collection(db, "equipment"), {
+                    name: name,
+                    owner: owner,
+                    image_url: image,
+                    status: "Available"
+                });
+                alert("Success! The item is now live in the student gallery.");
+                document.getElementById('addItemForm').reset(); // Clears the form
+            } catch (error) {
+                console.error("Error adding item: ", error);
+                alert("Failed to upload item.");
+            }
+        };
+
+        // Approve Booking
+        window.approveBooking = async function(bookingId, equipmentId) {
+            try {
+                const bookingRef = doc(db, "bookings", bookingId);
+                await updateDoc(bookingRef, { status: "approved" });
+                
+                if(equipmentId) {
+                    const equipmentRef = doc(db, "equipment", equipmentId);
+                    await updateDoc(equipmentRef, { status: "Checked-Out" });
+                }
+                alert("Success! Booking approved.");
+                loadRequests(); 
+            } catch (error) {
+                console.error("Error: ", error);
+            }
+        };
+
+        // Reject Booking
+        window.rejectBooking = async function(bookingId, equipmentId) {
+            try {
+                const bookingRef = doc(db, "bookings", bookingId);
+                await updateDoc(bookingRef, { status: "rejected" });
+                
+                if(equipmentId) {
+                    const equipmentRef = doc(db, "equipment", equipmentId);
+                    await updateDoc(equipmentRef, { status: "Available" });
+                }
+                alert("Request rejected. Item is available for others again.");
+                loadRequests(); 
+            } catch (error) {
+                console.error("Error: ", error);
+            }
+        };
+
+        // Return Item
+        window.returnItem = async function(bookingId, equipmentId) {
+            try {
+                const bookingRef = doc(db, "bookings", bookingId);
+                await updateDoc(bookingRef, { status: "returned" });
+                
+                if(equipmentId) {
+                    const equipmentRef = doc(db, "equipment", equipmentId);
+                    await updateDoc(equipmentRef, { status: "Available" });
+                }
+                alert("Success! Item returned.");
+                loadRequests(); 
+            } catch (error) {
+                console.error("Error: ", error);
+            }
+        };
+
+        // Load ALL Requests
+        async function loadRequests() {
+            const adminDiv = document.getElementById('pendingRequests');
+            adminDiv.innerHTML = "Checking database...";
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "bookings"));
+                adminDiv.innerHTML = ""; 
+                let hasRequests = false;
+
+                querySnapshot.forEach((document) => {
+                    const req = document.data();
+                    const documentId = document.id; 
+                    
+                    if (req.status === 'pending') {
+                        hasRequests = true;
+                        adminDiv.innerHTML += `
+                        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>[PENDING] ${req.item_name}</strong> <br>
+                                <small>Requested by: ${req.borrower_email}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-success btn-sm me-2" onclick="approveBooking('${documentId}', '${req.equipment_id}')">Approve</button>
+                                <button class="btn btn-danger btn-sm" onclick="rejectBooking('${documentId}', '${req.equipment_id}')">Reject</button>
+                            </div>
+                        </div>
+                        `;
+                    }
+                    
+                    if (req.status === 'approved') {
+                        hasRequests = true;
+                        adminDiv.innerHTML += `
+                        <div class="alert alert-info d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>[CHECKED-OUT] ${req.item_name}</strong> <br>
+                                <small>Currently held by: ${req.borrower_email}</small>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="returnItem('${documentId}', '${req.equipment_id}')">Mark as Returned</button>
+                        </div>
+                        `;
+                    }
+                });
+
+                if (!hasRequests) {
+                    adminDiv.innerHTML = "<p class='text-muted'>No active requests right now.</p>";
+                }
+            } catch (error) {
+                adminDiv.innerHTML = "<p class='text-danger'>Failed to load data.</p>";
+            }
+        }
+
+        loadRequests();
+    </script>
+</body>
+</html>
