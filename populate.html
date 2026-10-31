@@ -12,7 +12,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-        // !!! PASTE YOUR REAL FIREBASE CONFIG KEYS HERE !!!
+    
         const firebaseConfig = {
   apiKey: "AIzaSyCdRRPDwaWuzRO84bdASyAxthzTaN-cYcM",
   authDomain: "clubgear-5b056.firebaseapp.com",
@@ -25,14 +25,14 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Added image URLs (using a reliable placeholder service for the hackathon)
+        // image 
         const dummyEquipment = [
             { name: "Rigol DS1054Z Digital Oscilloscope", owner: "IEEE CASS Branch", status: "Available", image_url: "https://placehold.co/600x400/212529/FFFFFF?text=Oscilloscope" },
             { name: "Raspberry Pi 4 Model B (8GB)", owner: "Robotics Club", status: "Available", image_url: "https://placehold.co/600x400/198754/FFFFFF?text=Raspberry+Pi" },
             { name: "Hakko FX-888D Soldering Station", owner: "Hardware Garage", status: "Available", image_url: "https://placehold.co/600x400/ffc107/000000?text=Soldering+Station" },
             { name: "Fluke 117 Multimeter", owner: "Physics Dept", status: "Available", image_url: "https://placehold.co/600x400/fd7e14/FFFFFF?text=Multimeter" },
             { name: "Arduino Mega 2560", owner: "Robotics Club", status: "Available", image_url: "https://placehold.co/600x400/0dcaf0/000000?text=Arduino+Mega" },
-            { name: "Arduino Mega 2560", owner: "Robotics Club", status: "Available", image_url: "https://placehold.co/600x400/0dcaf0/000000?text=Arduino+Mega" } // Added a second one to show multiple availability!
+            { name: "Arduino Mega 2560", owner: "Robotics Club", status: "Available", image_url: "https://placehold.co/600x400/0dcaf0/000000?text=Arduino+Mega" } 
         ];
 
         window.seedDatabase = async function() {
