@@ -232,9 +232,16 @@
                     const equipmentId = document.id; 
                     
                     if(item.status.toLowerCase() === 'available') {
-                        const cardHtml = `
+                
+                        
+        const hasRealImage = item.image_url && !item.image_url.includes('placehold.co');
+
+        const cardHtml = `
             <div class="card">
-                <img src="${item.image_url || 'https://placehold.co/600x400/eeeeee/000000?text=No+Image'}" class="card-image-placeholder" alt="Equipment Image">
+                ${hasRealImage 
+                    ? `<img src="${item.image_url}" class="card-image-placeholder" alt="${item.name}">`
+                    : `<div class="card-image-placeholder" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); display:flex; align-items:center; justify-content:center; font-size: 3rem; margin-bottom: 16px; min-height: 180px; width: 100%; border-radius: 12px; box-sizing: border-box;">📦</div>`
+                }
                 
                 <h3>${item.name}</h3>
                 <p>Owner: ${item.owner}</p>
@@ -242,7 +249,7 @@
                 
                 <button onclick="requestBooking('${item.name}', '${equipmentId}')">Request Booking</button>
             </div>
-             `;
+        `;
                         
             
                         equipmentDiv.innerHTML += cardHtml;
